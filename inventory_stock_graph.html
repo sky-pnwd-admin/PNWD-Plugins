@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory & Stock</title>
+    <script src="https://alcdn.msauth.net/browser/2.38.1/js/msal-browser.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+        
+        h1 {
+            color: #2d3748;
+            font-size: 28px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #30cfd0;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: #48bb78;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+        
+        .submit-btn:hover {
+            background: #38a169;
+        }
+        
+        .submit-btn:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+        
+        .status-message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+        
+        .status-message.success {
+            background: #c6f6d5;
+            color: #22543d;
+            display: block;
+        }
+        
+        .status-message.error {
+            background: #fed7d7;
+            color: #742a2a;
+            display: block;
+        }
+        
+        .auth-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #edf2f7;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .auth-btn {
+            padding: 12px 24px;
+            background: #30cfd0;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .auth-status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #4a5568;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Inventory & Stock</h1>
+        
+        <div class="auth-section">
+            <button id="signInBtn" class="auth-btn">Sign in with Microsoft</button>
+            <div id="authStatus" class="auth-status"></div>
+        </div>
+        
+        <form id="inventoryForm">
+            <div class="form-group">
+                <label for="transactionType">Transaction Type</label>
+                <select id="transactionType" required>
+                    <option value="">Select...</option>
+                    <option value="Stock In">Stock In (Received)</option>
+                    <option value="Stock Out">Stock Out (Used/Issued)</option>
+                    <option value="Transfer">Transfer Between Locations</option>
+                    <option value="Adjustment">Inventory Adjustment</option>
+                    <option value="Return">Return to Vendor</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="transactionDate">Transaction Date</label>
+                <input type="date" id="transactionDate" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="materialType">Material Type</label>
+                <select id="materialType" required>
+                    <option value="">Select...</option>
+                    <option value="Drywall Sheets">Drywall Sheets</option>
+                    <option value="Joint Compound">Joint Compound</option>
+                    <option value="Tape">Tape</option>
+                    <option value="Fasteners">Fasteners</option>
+                    <option value="Corner Bead">Corner Bead</option>
+                    <option value="Tools">Tools</option>
+                    <option value="Safety Equipment">Safety Equipment</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="itemDescription">Item Description</label>
+                <input type="text" id="itemDescription" required placeholder="e.g., 1/2 inch x 4x8 standard drywall">
+            </div>
+            
+            <div class="form-group">
+                <label for="sku">SKU/Product Code</label>
+                <input type="text" id="sku">
+            </div>
+            
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="quantity">Quantity</label>
+                    <input type="number" id="quantity" required min="0" step="0.01">
+                </div>
+                
+                <div class="form-group">
+                    <label for="unit">Unit</label>
+                    <select id="unit" required>
+                        <option value="">Select...</option>
+                        <option value="Sheets">Sheets</option>
+                        <option value="Boxes">Boxes</option>
+                        <option value="Buckets">Buckets</option>
+                        <option value="Rolls">Rolls</option>
+                        <option value="Pieces">Pieces</option>
+                        <option value="Feet">Feet</option>
+                        <option value="Pounds">Pounds</option>
+                        <option value="Each">Each</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="location">Storage Location</label>
+                <select id="location" required>
+                    <option value="">Select...</option>
+                    <option value="Main Warehouse">Main Warehouse</option>
+                    <option value="Truck 1">Truck 1</option>
+                    <option value="Truck 2">Truck 2</option>
+                    <option value="Truck 3">Truck 3</option>
+                    <option value="Job Site">On Job Site</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="projectAssignment">Project Assignment (if applicable)</label>
+                <input type="text" id="projectAssignment" placeholder="Leave blank for general stock">
+            </div>
+            
+            <div class="form-group">
+                <label for="jobNumber">Job Number (if applicable)</label>
+                <input type="text" id="jobNumber">
+            </div>
+            
+            <div class="form-group">
+                <label for="vendor">Vendor/Supplier</label>
+                <input type="text" id="vendor">
+            </div>
+            
+            <div class="form-group">
+                <label for="unitCost">Unit Cost ($)</label>
+                <input type="number" id="unitCost" step="0.01" min="0">
+            </div>
+            
+            <div class="form-group">
+                <label for="totalCost">Total Cost ($)</label>
+                <input type="number" id="totalCost" step="0.01" min="0" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="receivedBy">Received/Issued By</label>
+                <input type="text" id="receivedBy" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes"></textarea>
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submitBtn" disabled>Submit Inventory Transaction</button>
+        </form>
+        
+        <div id="statusMessage" class="status-message"></div>
+        
+        <div id="debugLog" style="margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 8px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; display: none;">
+            <strong>Debug Log:</strong>
+            <div id="debugContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // Debug logging to screen
+        const debugLog = document.getElementById('debugLog');
+        const debugContent = document.getElementById('debugContent');
+        function log(message) {
+            console.log(message);
+            debugLog.style.display = 'block';
+            const entry = document.createElement('div');
+            entry.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            debugContent.appendChild(entry);
+            debugContent.scrollTop = debugContent.scrollHeight;
+        }
+
+        // Microsoft Graph API Configuration
+        const msalConfig = {
+            auth: {
+                clientId: '7c3f7932-0ace-4b08-a3da-509d90be939f',
+                authority: 'https://login.microsoftonline.com/ea96ba97-cbce-4c72-b769-94e03159166a',
+                redirectUri: window.location.origin + window.location.pathname
+            },
+            cache: {
+                cacheLocation: 'localStorage',
+                storeAuthStateInCookie: true
+            }
+        };
+
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+        const loginRequest = {
+            scopes: ['Files.ReadWrite.All', 'Sites.ReadWrite.All']
+        };
+
+        // SharePoint Configuration
+        const siteId = 'pnwd.sharepoint.com,0c76eba1-3ee1-4b8b-bf31-672a6c59ba3f,e816da5b-53f0-44e4-9d60-98d0e513bf22';
+        const driveId = 'b!oet2DOE-i0u_MWcqbFm6P1vaFujwU-REnWCY0OUTvyKnyCrpOAv9Toj_JjY7TCMy';
+        const excelFileId = '012RKNHWTWFRI6F47WX5DIA3SNADH5UWGX';
+        const tableName = 'InventoryStock';
+        const department = 'Operations';
+
+        let accessToken = null;
+
+
+        // Generate next Record_ID
+        async function generateRecordID() {
+            try {
+                log('Fetching last Record_ID from Excel...');
+                const response = await fetch(
+                    `https://graph.microsoft.com/v1.0/sites/${siteId}/drives/${driveId}/items/${excelFileId}/workbook/tables/${tableName}/rows`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    log('Could not fetch rows, using default: OPS-STO-00001');
+                    return 'OPS-STO-00001';
+                }
+                
+                const data = await response.json();
+                const rows = data.value;
+                
+                if (rows.length === 0) {
+                    log('No existing rows, starting at: OPS-STO-00001');
+                    return 'OPS-STO-00001';
+                }
+                
+                // Get last row's Record_ID (column 0)
+                const lastRecordID = rows[rows.length - 1].values[0][0];
+                log('Last Record_ID: ' + lastRecordID);
+                
+                if (!lastRecordID || lastRecordID === '') {
+                    log('Last Record_ID empty, using: OPS-STO-00001');
+                    return 'OPS-STO-00001';
+                }
+                
+                // Parse the number part and increment
+                const parts = lastRecordID.split('-');
+                const nextNum = (parseInt(parts[2]) + 1).toString().padStart(5, '0');
+                const newID = 'OPS-STO-' + nextNum;
+                log('Generated new Record_ID: ' + newID);
+                return newID;
+                
+            } catch (error) {
+                log('Error generating Record_ID: ' + error.message);
+                return 'OPS-STO-00001';
+            }
+        }
+
+        // Authentication
+        document.getElementById('signInBtn').addEventListener('click', async () => {
+            try {
+                log('Starting login...');
+                const authResponse = await msalInstance.loginPopup(loginRequest);
+                log('Login successful: ' + authResponse.account.username);
+                accessToken = authResponse.accessToken;
+                msalInstance.setActiveAccount(authResponse.account);
+                document.getElementById('authStatus').textContent = `Signed in as ${authResponse.account.username}`;
+                document.getElementById('signInBtn').style.display = 'none';
+                document.getElementById('submitBtn').disabled = false;
+                log('Submit button enabled');
+            } catch (error) {
+                log('Login failed: ' + error.message);
+                showStatus('Authentication failed: ' + error.message, 'error');
+            }
+        });
+
+        // Initialize on page load
+        (async () => {
+            try {
+                log('Checking for existing session...');
+                const accounts = msalInstance.getAllAccounts();
+                if (accounts.length > 0) {
+                    log('Found existing account: ' + accounts[0].username);
+                    msalInstance.setActiveAccount(accounts[0]);
+                    const authResponse = await msalInstance.acquireTokenSilent({
+                        ...loginRequest,
+                        account: accounts[0]
+                    });
+                    accessToken = authResponse.accessToken;
+                    document.getElementById('authStatus').textContent = `Signed in as ${accounts[0].username}`;
+                    document.getElementById('signInBtn').style.display = 'none';
+                    document.getElementById('submitBtn').disabled = false;
+                    log('Auto-signin successful, submit button enabled');
+                } else {
+                    log('No existing session found');
+                }
+            } catch (error) {
+                log('Silent auth failed: ' + error.message);
+            }
+        })();
+
+        // Auto-calculate total cost
+        function calculateTotalCost() {
+            const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+            const unitCost = parseFloat(document.getElementById('unitCost').value) || 0;
+            const total = quantity * unitCost;
+            document.getElementById('totalCost').value = total > 0 ? total.toFixed(2) : '';
+        }
+
+        document.getElementById('quantity').addEventListener('input', calculateTotalCost);
+        document.getElementById('unitCost').addEventListener('input', calculateTotalCost);
+
+        // Form submission
+        document.getElementById('inventoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!accessToken) {
+                showStatus('Please sign in first', 'error');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            try {
+                const account = msalInstance.getActiveAccount();
+                if (!account) {
+                    showStatus('Session expired. Please sign in again.', 'error');
+                    return;
+                }
+
+                const formData = {
+                    timestamp: new Date().toISOString(),
+                    department: department,
+                    submitter: account.name || account.username.split('@')[0],
+                    submitterEmail: account.username,
+                    status: 'Submitted',
+                    transactionType: document.getElementById('transactionType').value,
+                    transactionDate: document.getElementById('transactionDate').value,
+                    materialType: document.getElementById('materialType').value,
+                    itemDescription: document.getElementById('itemDescription').value,
+                    sku: document.getElementById('sku').value || '',
+                    quantity: document.getElementById('quantity').value,
+                    unit: document.getElementById('unit').value,
+                    location: document.getElementById('location').value,
+                    projectAssignment: document.getElementById('projectAssignment').value || '',
+                    jobNumber: document.getElementById('jobNumber').value || '',
+                    vendor: document.getElementById('vendor').value || '',
+                    unitCost: document.getElementById('unitCost').value || '0',
+                    totalCost: document.getElementById('totalCost').value || '0',
+                    receivedBy: document.getElementById('receivedBy').value,
+                    notes: document.getElementById('notes').value || ''
+                };
+
+                // Generate Record_ID
+                const recordID = await generateRecordID();
+                log("Using Record_ID: " + recordID);
+
+                // Add row to Excel table
+                const response = await fetch(
+                    `https://graph.microsoft.com/v1.0/sites/${siteId}/drives/${driveId}/items/${excelFileId}/workbook/tables/${tableName}/rows`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            values: [[
+                                recordID,  // Generated Record_ID - Excel formula will populate
+                                formData.timestamp,
+                                formData.department,
+                                formData.submitter,
+                                formData.submitterEmail,
+                                formData.status,
+                                formData.transactionType,
+                                formData.transactionDate,
+                                formData.materialType,
+                                formData.itemDescription,
+                                formData.sku,
+                                formData.quantity,
+                                formData.unit,
+                                formData.location,
+                                formData.projectAssignment,
+                                formData.jobNumber,
+                                formData.vendor,
+                                formData.unitCost,
+                                formData.totalCost,
+                                formData.receivedBy,
+                                formData.notes
+                            ]]
+                        })
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`Failed to write to Excel: ${response.statusText}`);
+                }
+
+                showStatus('Inventory transaction submitted successfully!', 'success');
+                
+                // Reset form
+                setTimeout(() => {
+                    document.getElementById('inventoryForm').reset();
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Inventory Transaction';
+                    document.getElementById('statusMessage').style.display = 'none';
+                }, 2000);
+
+            } catch (error) {
+                log('ERROR: Submission error: - ' + error);
+                showStatus('Submission failed: ' + error.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Inventory Transaction';
+            }
+        });
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message ${type}`;
+        }
+
+        // Set default date
+        document.getElementById('transactionDate').valueAsDate = new Date();
+    </script>
+</body>
+</html>
