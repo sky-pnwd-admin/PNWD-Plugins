@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>PNWD — Inventory &amp; Stock</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brand: #1B4F72; --accent: #2980B9; --success: #1E8449;
+      --warn: #D35400; --danger: #C0392B; --bg: #F4F6F8; --card: #FFFFFF;
+      --border: #D5D8DC; --text: #1C2833; --sub: #5D6D7E;
+      --radius: 12px; --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 40px; }
+    header { background: var(--brand); color: white; padding: 18px 20px 14px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    header .logo { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.7; }
+    header h1 { font-size: 20px; font-weight: 700; margin-top: 2px; }
+    .tab-bar { display: flex; background: white; border-bottom: 2px solid var(--border); padding: 0 16px; position: sticky; top: 66px; z-index: 90; }
+    .tab { flex: 1; padding: 14px 8px; text-align: center; font-size: 13px; font-weight: 600; color: var(--sub); border-bottom: 3px solid transparent; cursor: pointer; transition: all 0.2s; margin-bottom: -2px; }
+    .tab.active { color: var(--brand); border-bottom-color: var(--brand); }
+    .tab-panel { display: none; padding: 16px 16px 0; }
+    .tab-panel.active { display: block; }
+    .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 14px; }
+    .section-label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--brand); margin-bottom: 14px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--sub); margin-bottom: 6px; margin-top: 16px; }
+    label:first-of-type { margin-top: 0; }
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%; padding: 14px; border: 1.5px solid var(--border); border-radius: 10px;
+      font-size: 16px; color: var(--text); background: white; -webkit-appearance: none; outline: none; transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: none; min-height: 70px; }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%235D6D7E'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    /* Movement toggle */
+    .movement-row { display: flex; background: var(--bg); border-radius: 10px; padding: 4px; gap: 4px; }
+    .movement-btn { flex: 1; padding: 11px 6px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; background: none; color: var(--sub); transition: all 0.2s; text-align: center; }
+    .movement-btn.in  { background: #E9F7EF; color: #1E8449; }
+    .movement-btn.out { background: #FDECEA; color: var(--danger); }
+    .movement-btn.adj { background: #EBF5FB; color: var(--brand); }
+    /* Stock indicator */
+    .stock-indicator { display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: 10px; padding: 14px; margin-top: 10px; }
+    .stock-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .stock-dot.high   { background: var(--success); }
+    .stock-dot.medium { background: #F39C12; }
+    .stock-dot.low    { background: var(--danger); }
+    .stock-dot.zero   { background: #BDC3C7; }
+    .stock-text { font-size: 14px; font-weight: 600; }
+    .stock-sub  { font-size: 12px; color: var(--sub); margin-top: 2px; }
+    .low-stock-alert { background: #FDECEA; border: 1.5px solid #E74C3C; border-radius: 10px; padding: 12px 14px; display: none; margin-top: 12px; font-size: 14px; color: #922B21; }
+    .low-stock-alert.show { display: flex; align-items: center; gap: 10px; }
+    /* Other material field */
+    .other-material-field { display: none; margin-top: 12px; }
+    .other-material-field.show { display: block; }
+    /* Quick Lookup */
+    .lookup-result { background: var(--bg); border-radius: 10px; padding: 16px; margin-top: 12px; font-size: 14px; color: var(--sub); text-align: center; }
+    /* Buttons */
+    .btn-primary { display: block; width: 100%; padding: 16px; background: var(--brand); color: white; font-size: 17px; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; margin-top: 20px; -webkit-tap-highlight-color: transparent; transition: background 0.2s; }
+    .btn-primary:active { background: var(--accent); }
+    /* Spinner */
+    .spinner-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 999; align-items: center; justify-content: center; flex-direction: column; gap: 16px; color: white; font-size: 16px; }
+    .spinner-overlay.show { display: flex; }
+    .spinner { width: 44px; height: 44px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Success */
+    .success-card { display: none; text-align: center; padding: 28px 16px; }
+    .success-card.show { display: block; }
+    .success-icon { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 14px; animation: pop 0.4s ease; }
+    .success-icon.green  { background: var(--success); }
+    .success-icon.orange { background: var(--warn); }
+    @keyframes pop { 0%{transform:scale(0)} 80%{transform:scale(1.1)} 100%{transform:scale(1)} }
+    .success-card h2 { font-size: 20px; margin-bottom: 8px; }
+    .success-card p  { color: var(--sub); font-size: 14px; line-height: 1.5; margin-bottom: 4px; }
+    .record-id { background: var(--bg); border-radius: 8px; padding: 10px; font-family: monospace; font-size: 14px; color: var(--brand); font-weight: 700; margin: 12px 0; }
+    .btn-new { display: inline-block; margin-top: 14px; padding: 13px 26px; background: var(--brand); color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
+    /* Error */
+    .error-banner { display: none; background: #FDEDEC; border: 1.5px solid #E74C3C; border-radius: 10px; padding: 14px; margin-top: 12px; font-size: 14px; color: #922B21; }
+    .error-banner.show { display: block; }
+    .req { color: var(--warn); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Pacific Northwest Drywall</div>
+  <h1>📦 Inventory &amp; Stock</h1>
+</header>
+
+<div class="tab-bar">
+  <div class="tab active" id="tab-movement" onclick="switchTab('movement')">Stock Entry</div>
+  <div class="tab" id="tab-lookup"   onclick="switchTab('lookup')">Quick Lookup</div>
+</div>
+
+<div class="spinner-overlay" id="spinner">
+  <div class="spinner"></div>
+  <span>Updating inventory…</span>
+</div>
+
+<!-- ══════════════ TAB: STOCK ENTRY ══════════════ -->
+<div class="tab-panel active" id="panel-movement">
+
+  <div id="inv-form">
+    <div class="card">
+      <div class="section-label">Movement Type</div>
+      <div class="movement-row">
+        <button class="movement-btn in"  id="btn-in"  onclick="setMovement('IN')">📥 Stock In</button>
+        <button class="movement-btn"     id="btn-out" onclick="setMovement('OUT')">📤 Stock Out</button>
+        <button class="movement-btn"     id="btn-adj" onclick="setMovement('ADJ')">⚙️ Adjust</button>
+      </div>
+      <p style="font-size:12px;color:var(--sub);margin-top:10px;line-height:1.4;" id="movement-desc">
+        Receiving materials, restocking shelves, or adding new items to inventory.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Item Details</div>
+      <label for="category">Category <span class="req">*</span></label>
+      <select id="category" onchange="onCategoryChange()">
+        <option value="">— Select Category —</option>
+        <option>Drywall / Sheetrock</option>
+        <option>Metal Framing / Studs</option>
+        <option>Fasteners / Screws</option>
+        <option>Joint Compound / Mud</option>
+        <option>Tape &amp; Finishing Materials</option>
+        <option>Insulation</option>
+        <option>Caulk &amp; Sealants</option>
+        <option>Safety Equipment / PPE</option>
+        <option>Tools &amp; Equipment</option>
+        <option>Adhesives &amp; Primers</option>
+        <option>Other Materials</option>
+      </select>
+
+      <!-- Conditional: only shown when "Other Materials" selected -->
+      <div class="other-material-field" id="other-material-field">
+        <label for="other-material-spec">Specify Material <span class="req">*</span></label>
+        <input type="text" id="other-material-spec" placeholder="Describe the material explicitly" autocomplete="off" />
+      </div>
+
+      <label for="item-name">Item Name <span class="req">*</span></label>
+      <input type="text" id="item-name" placeholder="e.g. 5/8″ Type X Drywall" autocomplete="off" />
+
+      <div class="row-2" style="margin-top:16px;">
+        <div>
+          <label for="quantity" style="margin-top:0;">Qty <span class="req">*</span></label>
+          <input type="number" id="quantity" placeholder="0" min="0" step="1" oninput="updateStockIndicator()" />
+        </div>
+        <div>
+          <label for="unit" style="margin-top:0;">Unit <span class="req">*</span></label>
+          <select id="unit">
+            <option value="">—</option>
+            <option>Sheets</option>
+            <option>Pieces</option>
+            <option>Boxes</option>
+            <option>Bags</option>
+            <option>Buckets</option>
+            <option>Rolls</option>
+            <option>Each</option>
+            <option>Linear Ft</option>
+            <option>Sq Ft</option>
+            <option>Pallets</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="location">Storage Location <span class="req">*</span></label>
+      <select id="location">
+        <option value="">— Select Location —</option>
+        <optgroup label="On-Site Storage">
+          <option>Warehouse Storage</option>
+          <option>In Office (Apparel)</option>
+          <option>Gravel Lot</option>
+        </optgroup>
+        <optgroup label="Vehicles">
+          <option>PNWD-F450 · Ford F-450</option>
+          <option>PNWD-F350 · Ford F-350</option>
+          <option>PNWD-VAN · Ford Transit (Van)</option>
+          <option>PNWD-TUNDRA · Toyota Tundra</option>
+          <option>PNWD-DUMP · Dump Trailer</option>
+        </optgroup>
+        <optgroup label="Job Sites">
+          <option>Job Site — Arhaus</option>
+          <option>Job Site — Toyota</option>
+          <option>Job Site — Grand Prix</option>
+          <option>Job Site — CC Jail</option>
+          <option>Job Site — DWR</option>
+          <option>Job Site — HM</option>
+          <option>Job Site — PB</option>
+          <option>Job Site — Rite Aid</option>
+          <option>Job Site — Eastbank Market PDX</option>
+          <option>Job Site — Washington Park PDX</option>
+          <option>Job Site — Topaz Farms PDX</option>
+          <option>Job Site — Barbur Foods PDX</option>
+          <option>Job Site — TS Redmond</option>
+        </optgroup>
+      </select>
+
+      <label for="supplier">Supplier / Source (optional)</label>
+      <input type="text" id="supplier" placeholder="e.g. Pacific Coast Supply" autocomplete="off" />
+
+      <label for="barcode">Barcode / SKU (optional)</label>
+      <input type="text" id="barcode" placeholder="Scan or type barcode" autocomplete="off" />
+    </div>
+
+    <div class="card">
+      <div class="section-label">Stock Level Tracking</div>
+      <label for="low-stock-threshold">Low-Stock Alert Threshold</label>
+      <input type="number" id="low-stock-threshold" placeholder="e.g. 10" min="0" oninput="updateStockIndicator()" />
+      <div class="stock-indicator">
+        <div class="stock-dot zero" id="stock-dot"></div>
+        <div>
+          <div class="stock-text" id="stock-text">Enter quantity to see status</div>
+          <div class="stock-sub"  id="stock-sub">—</div>
+        </div>
+      </div>
+      <div class="low-stock-alert" id="low-stock-alert">
+        ⚠️ <span>Quantity is at or below the low-stock threshold. Sam Cooley will be notified.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Project Reference</div>
+      <label for="project-ref">Project (if applicable)</label>
+      <select id="project-ref">
+        <option value="">— General Warehouse —</option>
+        <option>Arhaus</option>
+        <option>Toyota</option>
+        <option>Grand Prix</option>
+        <option>CC Jail</option>
+        <option>DWR</option>
+        <option>HM</option>
+        <option>PB</option>
+        <option>Rite Aid</option>
+        <option>Eastbank Market - PDX</option>
+        <option>Washington Park - PDX</option>
+        <option>Topaz Farms - PDX</option>
+        <option>Barbur Foods - PDX</option>
+        <option>TS Redmond</option>
+      </select>
+      <label for="inv-notes">Notes (optional)</label>
+      <textarea id="inv-notes" placeholder="Any additional details about this stock movement."></textarea>
+    </div>
+
+    <div class="error-banner" id="form-error"></div>
+    <button class="btn-primary" onclick="submitForm()">✅ Submit Inventory Entry</button>
+  </div><!-- /inv-form -->
+
+  <!-- Success -->
+  <div class="success-card" id="inv-success">
+    <div class="success-icon green" id="success-icon">✓</div>
+    <h2 id="success-title">Inventory Updated</h2>
+    <p id="success-msg">Stock entry saved to SharePoint.</p>
+    <div class="record-id" id="record-id-display">—</div>
+    <p id="low-stock-msg" style="display:none;color:var(--warn);font-weight:600;font-size:13px;">⚠️ Low-stock alert sent to Sam Cooley.</p>
+    <button class="btn-new" onclick="resetForm()">+ New Entry</button>
+  </div>
+
+</div><!-- /panel-movement -->
+
+<!-- ══════════════ TAB: QUICK LOOKUP ══════════════ -->
+<div class="tab-panel" id="panel-lookup">
+  <div class="card">
+    <div class="section-label">Quick Lookup</div>
+    <label for="lookup-query">Search Item Name or Barcode</label>
+    <input type="text" id="lookup-query" placeholder="e.g. drywall, PCS-1234" autocomplete="off" />
+    <button class="btn-primary" style="margin-top:14px;" onclick="doLookup()">🔍 Search</button>
+    <div class="lookup-result" id="lookup-result" style="display:none;"></div>
+  </div>
+  <div class="card">
+    <p style="font-size:13px;color:var(--sub);line-height:1.6;">
+      Quick Lookup searches the Master Inventory Workbook in SharePoint. For a full inventory view, open the workbook directly.<br /><br />
+      <strong style="color:var(--brand);">SharePoint path:</strong><br />
+      Ops &amp; Logistics → Inventory → PNWD_Warehouse_Inventory.xlsx
+    </p>
+  </div>
+</div>
+
+<script>
+const WEBHOOK_URL      = 'YOUR_POWER_AUTOMATE_WEBHOOK_URL_HERE';
+const SHAREPOINT_SITE  = 'https://pnwd.sharepoint.com/sites/PNWD';
+
+let currentMovement = 'IN';
+
+const movementDescs = {
+  IN:  'Receiving materials, restocking shelves, or adding new items to inventory.',
+  OUT: 'Removing materials for a job site, issuing to a crew, or consuming from stock.',
+  ADJ: 'Correcting a count discrepancy, writing off damaged goods, or reconciling inventory.'
+};
+
+function switchTab(tab) {
+  ['movement','lookup'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    document.getElementById('panel-' + t).classList.toggle('active', t === tab);
+  });
+}
+
+function setMovement(type) {
+  currentMovement = type;
+  ['IN','OUT','ADJ'].forEach(t => {
+    const btn = document.getElementById('btn-' + t.toLowerCase());
+    btn.className = 'movement-btn' + (t === type ? (' ' + t.toLowerCase()) : '');
+  });
+  document.getElementById('movement-desc').textContent = movementDescs[type];
+}
+
+function onCategoryChange() {
+  const cat   = document.getElementById('category').value;
+  const field = document.getElementById('other-material-field');
+  if (cat === 'Other Materials') {
+    field.classList.add('show');
+  } else {
+    field.classList.remove('show');
+    document.getElementById('other-material-spec').value = '';
+  }
+}
+
+function updateStockIndicator() {
+  const qty   = parseInt(document.getElementById('quantity').value) || 0;
+  const thresh = parseInt(document.getElementById('low-stock-threshold').value) || 0;
+  const dot   = document.getElementById('stock-dot');
+  const txt   = document.getElementById('stock-text');
+  const sub   = document.getElementById('stock-sub');
+  const alert = document.getElementById('low-stock-alert');
+
+  dot.className = 'stock-dot';
+  if (qty === 0) {
+    dot.classList.add('zero');
+    txt.textContent = 'Out of Stock';
+    sub.textContent = 'Zero units remaining';
+    alert.classList.add('show');
+  } else if (thresh > 0 && qty <= thresh) {
+    dot.classList.add('low');
+    txt.textContent = 'Low Stock';
+    sub.textContent = `${qty} units — at or below threshold of ${thresh}`;
+    alert.classList.add('show');
+  } else if (thresh > 0 && qty <= thresh * 2) {
+    dot.classList.add('medium');
+    txt.textContent = 'Moderate Stock';
+    sub.textContent = `${qty} units remaining`;
+    alert.classList.remove('show');
+  } else {
+    dot.classList.add('high');
+    txt.textContent = 'Good Stock Level';
+    sub.textContent = `${qty} units remaining`;
+    alert.classList.remove('show');
+  }
+}
+
+function generateRecordID() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let rand = '';
+  for (let i = 0; i < 4; i++) rand += chars[Math.floor(Math.random() * chars.length)];
+  return 'INV-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + rand;
+}
+
+async function submitForm() {
+  document.getElementById('form-error').classList.remove('show');
+
+  const cat = document.getElementById('category').value;
+  const otherSpec = document.getElementById('other-material-spec').value.trim();
+
+  // Validate Other Materials spec
+  if (cat === 'Other Materials' && !otherSpec) {
+    showError('Please specify what "Other Materials" refers to in the required field.');
+    document.getElementById('other-material-spec').focus();
+    return;
+  }
+
+  const required = ['category','item-name','quantity','unit','location'];
+  for (const id of required) {
+    if (!document.getElementById(id).value.trim()) {
+      showError('Please complete all required fields before submitting.');
+      document.getElementById(id).focus();
+      return;
+    }
+  }
+
+  const qty    = parseInt(document.getElementById('quantity').value) || 0;
+  const thresh = parseInt(document.getElementById('low-stock-threshold').value) || 0;
+  const isLowStock = thresh > 0 && qty <= thresh;
+
+  const recordID  = generateRecordID();
+  const timestamp = new Date().toISOString();
+
+  // Combine category + other spec into effective item name
+  const effectiveCategory = cat === 'Other Materials' && otherSpec
+    ? `Other Materials — ${otherSpec}`
+    : cat;
+
+  const payload = {
+    recordID,
+    timestamp,
+    formType:           'InventoryStock',
+    department:         'Operations',
+    movementType:       currentMovement,
+    itemName:           document.getElementById('item-name').value,
+    category:           effectiveCategory,
+    quantity:           qty,
+    unit:               document.getElementById('unit').value,
+    location:           document.getElementById('location').value,
+    supplier:           document.getElementById('supplier').value,
+    lowStockThreshold:  thresh,
+    lowStockAlert:      isLowStock,
+    barcode:            document.getElementById('barcode').value,
+    projectRef:         document.getElementById('project-ref').value,
+    notes:              document.getElementById('inv-notes').value,
+    submitter:          'Danny (Expediter)',
+    status:             'Submitted',
+    sharepointSite:     SHAREPOINT_SITE,
+    sharepointFolder:   'OPS-002-Inventory/001-inventory_stock',
+    masterLog: {
+      recordID,
+      timestamp,
+      formType:   'InventoryStock',
+      department: 'Operations',
+      submitter:  'Danny (Expediter)',
+      project:    document.getElementById('project-ref').value || 'General',
+      summary:    `${currentMovement} — ${document.getElementById('item-name').value} (${qty} ${document.getElementById('unit').value}) @ ${document.getElementById('location').value}`,
+      status:     'Submitted'
+    }
+  };
+
+  document.getElementById('spinner').classList.add('show');
+  try {
+    const res = await fetch(WEBHOOK_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    document.getElementById('spinner').classList.remove('show');
+    document.getElementById('record-id-display').textContent = recordID;
+    document.getElementById('success-icon').className = 'success-icon ' + (isLowStock ? 'orange' : 'green');
+    document.getElementById('success-title').textContent = isLowStock ? 'Entry Saved — Low Stock Alert' : 'Inventory Updated';
+    document.getElementById('low-stock-msg').style.display = isLowStock ? 'block' : 'none';
+    document.getElementById('inv-form').style.display    = 'none';
+    document.getElementById('inv-success').classList.add('show');
+    window.scrollTo(0, 0);
+  } catch (err) {
+    document.getElementById('spinner').classList.remove('show');
+    showError(`Submission failed (${err.message}). Check your connection and try again.`);
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('form-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function resetForm() {
+  ['category','item-name','quantity','unit','location','supplier','barcode','project-ref','inv-notes','low-stock-threshold','other-material-spec']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('other-material-field').classList.remove('show');
+  document.getElementById('low-stock-alert').classList.remove('show');
+  document.getElementById('stock-dot').className = 'stock-dot zero';
+  document.getElementById('stock-text').textContent = 'Enter quantity to see status';
+  document.getElementById('stock-sub').textContent = '—';
+  document.getElementById('form-error').classList.remove('show');
+  setMovement('IN');
+  document.getElementById('inv-form').style.display = 'block';
+  document.getElementById('inv-success').classList.remove('show');
+  window.scrollTo(0, 0);
+}
+
+function doLookup() {
+  const q   = document.getElementById('lookup-query').value.trim();
+  const res = document.getElementById('lookup-result');
+  res.style.display = 'block';
+  res.textContent = q
+    ? `Lookup for "${q}" — open the SharePoint inventory workbook for current counts.`
+    : 'Enter an item name or barcode to search.';
+}
+</script>
+</body>
+</html>

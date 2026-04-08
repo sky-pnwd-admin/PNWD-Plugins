@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>PNWD — Vehicle Log</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brand: #1B4F72; --accent: #2980B9; --success: #1E8449;
+      --warn: #D35400; --danger: #C0392B; --bg: #F4F6F8; --card: #FFFFFF;
+      --border: #D5D8DC; --text: #1C2833; --sub: #5D6D7E;
+      --radius: 12px; --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 40px; }
+    header { background: var(--brand); color: white; padding: 18px 20px 14px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    header .logo { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.7; }
+    header h1 { font-size: 20px; font-weight: 700; margin-top: 2px; }
+    .content { padding: 20px 16px; }
+    .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+    .section-label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--brand); margin-bottom: 14px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--sub); margin-bottom: 6px; margin-top: 16px; }
+    label:first-of-type { margin-top: 0; }
+    input[type="text"], input[type="date"], input[type="time"], input[type="number"], select, textarea {
+      width: 100%; padding: 14px; border: 1.5px solid var(--border); border-radius: 10px;
+      font-size: 16px; color: var(--text); background: white; -webkit-appearance: none; outline: none; transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: none; min-height: 70px; }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%235D6D7E'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+    /* Toggle */
+    .toggle-row { display: flex; background: var(--bg); border-radius: 10px; padding: 4px; gap: 4px; }
+    .toggle-btn { flex: 1; padding: 12px 8px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; background: none; color: var(--sub); transition: all 0.2s; text-align: center; }
+    .toggle-btn.active-out { background: #FDECEA; color: var(--danger); }
+    .toggle-btn.active-in  { background: #E9F7EF; color: var(--success); }
+    /* Info box */
+    .info-box { background: #EBF5FB; border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: 13px; color: var(--brand); line-height: 1.5; margin-bottom: 16px; }
+    /* Miles calc */
+    .miles-display { background: var(--bg); border-radius: 10px; padding: 14px; margin-top: 10px; font-size: 15px; font-weight: 600; color: var(--brand); text-align: center; display: none; }
+    .miles-display.show { display: block; }
+    /* OOS badge */
+    .oos-badge { display: inline-block; background: #FDECEA; color: var(--danger); border-radius: 6px; font-size: 11px; font-weight: 700; padding: 2px 7px; margin-left: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    /* Buttons */
+    .btn-primary { display: block; width: 100%; padding: 16px; background: var(--brand); color: white; font-size: 17px; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; text-align: center; margin-top: 20px; -webkit-tap-highlight-color: transparent; transition: background 0.2s; }
+    .btn-primary:active { background: var(--accent); }
+    /* Spinner */
+    .spinner-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; flex-direction: column; gap: 14px; color: white; }
+    .spinner-overlay.show { display: flex; }
+    .spinner { width: 44px; height: 44px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Success */
+    .success-screen { display: none; text-align: center; padding: 40px 20px; }
+    .success-screen.show { display: block; }
+    .success-icon { width: 72px; height: 72px; background: var(--success); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; margin: 0 auto 20px; animation: pop 0.4s ease; }
+    @keyframes pop { 0%{transform:scale(0)} 80%{transform:scale(1.1)} 100%{transform:scale(1)} }
+    .success-screen h2 { font-size: 24px; color: var(--success); margin-bottom: 8px; }
+    .success-screen p  { color: var(--sub); font-size: 15px; line-height: 1.5; }
+    .record-id { background: var(--bg); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 15px; color: var(--brand); font-weight: 700; margin: 16px 0; letter-spacing: 1px; }
+    .btn-new { display: inline-block; margin-top: 20px; padding: 14px 32px; background: var(--brand); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    /* Error */
+    .error-banner { display: none; background: #FDEDEC; border: 1.5px solid #E74C3C; border-radius: 10px; padding: 14px; margin-top: 12px; font-size: 14px; color: #922B21; }
+    .error-banner.show { display: block; }
+    .req { color: var(--warn); }
+    /* OOS warning */
+    .oos-warning { display: none; background: #FDECEA; border: 1.5px solid var(--danger); border-radius: 10px; padding: 14px; margin-top: 10px; font-size: 14px; color: #922B21; }
+    .oos-warning.show { display: block; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Pacific Northwest Drywall</div>
+  <h1>🚗 Vehicle Log</h1>
+</header>
+
+<div class="spinner-overlay" id="spinner">
+  <div class="spinner"></div>
+  <span>Logging vehicle entry…</span>
+</div>
+
+<div class="content" id="main-form">
+  <div class="card">
+    <div class="section-label">Check-Out / Check-In</div>
+    <div class="toggle-row">
+      <button class="toggle-btn active-out" id="btn-checkout" onclick="setEntryType('checkout')">🔑 Check-Out</button>
+      <button class="toggle-btn" id="btn-checkin"  onclick="setEntryType('checkin')">🏁 Check-In</button>
+    </div>
+    <div class="info-box" id="entry-info" style="margin-top:14px;">Log when you take a vehicle key. Record your starting odometer.</div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Vehicle &amp; Employee</div>
+    <label for="employee">Employee <span class="req">*</span></label>
+    <select id="employee">
+      <option value="">— Select Employee —</option>
+      <option>Danny (Expediter)</option>
+      <option>Brian Collins (PM)</option>
+      <option>Bobby Voss (Superintendent)</option>
+      <option>Sam Cooley (Operations)</option>
+      <option>Jon Murray (Estimator)</option>
+      <option>Robert Kupfer</option>
+      <option>Gideon Lampert</option>
+    </select>
+
+    <label for="vehicle-id">Vehicle <span class="req">*</span></label>
+    <select id="vehicle-id" onchange="onVehicleChange()">
+      <option value="">— Select Vehicle —</option>
+      <option value="PNWD-F450">PNWD-F450 · Ford F-450</option>
+      <option value="PNWD-F350">PNWD-F350 · Ford F-350</option>
+      <option value="PNWD-VAN">PNWD-VAN · Ford Transit (Van)</option>
+      <option value="PNWD-TUNDRA">PNWD-TUNDRA · Toyota Tundra</option>
+      <option value="PNWD-DUMP">PNWD-DUMP · Dump Trailer</option>
+      <option value="PNWD-OOS">PNWD-OOS · Decommissioned Trailer ⚠️ Out of Service</option>
+    </select>
+    <div class="oos-warning" id="oos-warning">⚠️ This vehicle is out of service. It cannot be checked out. Select a different vehicle.</div>
+
+    <label for="log-date">Date <span class="req">*</span></label>
+    <input type="date" id="log-date" />
+    <label for="log-time">Time <span class="req">*</span></label>
+    <input type="time" id="log-time" />
+  </div>
+
+  <div class="card">
+    <div class="section-label">Odometer</div>
+    <label for="odometer" id="odo-label">Starting Odometer <span class="req">*</span></label>
+    <input type="number" id="odometer" placeholder="e.g. 48250" min="0" oninput="calcMiles()" />
+
+    <div id="return-odo-group" style="display:none;">
+      <label for="odometer-return">Return Odometer <span class="req">*</span></label>
+      <input type="number" id="odometer-return" placeholder="e.g. 48390" min="0" oninput="calcMiles()" />
+      <div class="miles-display" id="miles-display">— miles driven</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Trip Details</div>
+    <label for="purpose">Purpose <span class="req">*</span></label>
+    <select id="purpose">
+      <option value="">— Select Purpose —</option>
+      <option>Material Pickup — Job Site Delivery</option>
+      <option>Material Pickup — Warehouse Return</option>
+      <option>Vendor Run</option>
+      <option>Job Site Visit / Inspection</option>
+      <option>Client Meeting</option>
+      <option>Tool / Equipment Transport</option>
+      <option>Subcontractor Coordination</option>
+      <option>Other (see notes)</option>
+    </select>
+
+    <label for="project-ref">Project Reference</label>
+    <select id="project-ref">
+      <option value="">— General Business / N/A —</option>
+      <option>Arhaus</option>
+      <option>Toyota</option>
+      <option>Grand Prix</option>
+      <option>CC Jail</option>
+      <option>DWR</option>
+      <option>HM</option>
+      <option>PB</option>
+      <option>Rite Aid</option>
+      <option>Eastbank Market - PDX</option>
+      <option>Washington Park - PDX</option>
+      <option>Topaz Farms - PDX</option>
+      <option>Barbur Foods - PDX</option>
+      <option>TS Redmond</option>
+    </select>
+
+    <label for="vehicle-notes">Notes</label>
+    <textarea id="vehicle-notes" placeholder="Any issues with the vehicle, unusual events, or additional context."></textarea>
+  </div>
+
+  <div class="error-banner" id="form-error"></div>
+  <button class="btn-primary" onclick="submitForm()">✅ Submit Vehicle Log</button>
+</div>
+
+<!-- SUCCESS -->
+<div class="success-screen" id="success-screen">
+  <div class="success-icon">✓</div>
+  <h2>Vehicle Log Saved</h2>
+  <p>Entry recorded successfully.</p>
+  <div class="record-id" id="record-id-display">—</div>
+  <button class="btn-new" onclick="resetForm()">+ New Entry</button>
+</div>
+
+<script>
+const WEBHOOK_URL     = 'YOUR_POWER_AUTOMATE_WEBHOOK_URL_HERE';
+const SHAREPOINT_SITE = 'https://pnwd.sharepoint.com/sites/PNWD';
+
+let entryType = 'checkout';
+
+(function init() {
+  const now = new Date();
+  document.getElementById('log-date').value = now.toISOString().slice(0,10);
+  document.getElementById('log-time').value =
+    String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+})();
+
+function setEntryType(type) {
+  entryType = type;
+  const isCheckout = type === 'checkout';
+  document.getElementById('btn-checkout').className = 'toggle-btn' + (isCheckout ? ' active-out' : '');
+  document.getElementById('btn-checkin').className  = 'toggle-btn' + (!isCheckout ? ' active-in' : '');
+  document.getElementById('entry-info').textContent = isCheckout
+    ? 'Log when you take a vehicle key. Record your starting odometer.'
+    : 'Log when you return a vehicle key. Record your return odometer to calculate miles driven.';
+  document.getElementById('odo-label').innerHTML = isCheckout
+    ? 'Starting Odometer <span class="req">*</span>'
+    : 'Starting Odometer (at checkout) <span class="req">*</span>';
+  document.getElementById('return-odo-group').style.display = isCheckout ? 'none' : 'block';
+  calcMiles();
+}
+
+function onVehicleChange() {
+  const val = document.getElementById('vehicle-id').value;
+  const oosWarn = document.getElementById('oos-warning');
+  oosWarn.classList.toggle('show', val === 'PNWD-OOS');
+}
+
+function calcMiles() {
+  if (entryType !== 'checkin') return;
+  const start  = parseFloat(document.getElementById('odometer').value);
+  const ret    = parseFloat(document.getElementById('odometer-return').value);
+  const disp   = document.getElementById('miles-display');
+  if (!isNaN(start) && !isNaN(ret) && ret >= start) {
+    disp.textContent = `${(ret - start).toLocaleString()} miles driven`;
+    disp.classList.add('show');
+  } else {
+    disp.classList.remove('show');
+  }
+}
+
+function generateRecordID() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let rand = '';
+  for (let i = 0; i < 4; i++) rand += chars[Math.floor(Math.random() * chars.length)];
+  return 'VL-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + rand;
+}
+
+async function submitForm() {
+  document.getElementById('form-error').classList.remove('show');
+
+  const vehicle = document.getElementById('vehicle-id').value;
+  if (vehicle === 'PNWD-OOS') {
+    showError('This vehicle is out of service and cannot be logged for checkout.');
+    return;
+  }
+
+  const required = ['employee','vehicle-id','log-date','log-time','odometer','purpose'];
+  if (entryType === 'checkin') required.push('odometer-return');
+  for (const id of required) {
+    if (!document.getElementById(id).value.trim()) {
+      showError('Please complete all required fields before submitting.');
+      document.getElementById(id).focus();
+      return;
+    }
+  }
+
+  const start      = parseFloat(document.getElementById('odometer').value);
+  const ret        = entryType === 'checkin' ? parseFloat(document.getElementById('odometer-return').value) : null;
+  const milesDriven = (entryType === 'checkin' && !isNaN(ret)) ? (ret - start) : null;
+
+  const recordID  = generateRecordID();
+  const timestamp = new Date().toISOString();
+
+  const payload = {
+    recordID,
+    timestamp,
+    formType:     'VehicleFleetLog',
+    department:   'Operations',
+    entryType,
+    employee:     document.getElementById('employee').value,
+    vehicleID:    vehicle,
+    logDate:      document.getElementById('log-date').value,
+    logTime:      document.getElementById('log-time').value,
+    odometerStart: start,
+    odometerReturn: ret,
+    milesDriven,
+    purpose:      document.getElementById('purpose').value,
+    projectRef:   document.getElementById('project-ref').value,
+    notes:        document.getElementById('vehicle-notes').value,
+    submitter:    'Danny (Expediter)',
+    status:       'Submitted',
+    sharepointSite: SHAREPOINT_SITE,
+    sharepointFolder: 'OPS-003-Vehicles/001-vehicle_log',
+    masterLog: {
+      recordID,
+      timestamp,
+      formType:   'VehicleFleetLog',
+      department: 'Operations',
+      submitter:  'Danny (Expediter)',
+      project:    document.getElementById('project-ref').value || 'General',
+      summary:    `${entryType === 'checkout' ? 'Check-out' : 'Check-in'}: ${vehicle} — ${document.getElementById('employee').value}`,
+      status:     'Submitted'
+    }
+  };
+
+  document.getElementById('spinner').classList.add('show');
+  try {
+    const res = await fetch(WEBHOOK_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    document.getElementById('spinner').classList.remove('show');
+    document.getElementById('record-id-display').textContent = recordID;
+    document.getElementById('main-form').style.display   = 'none';
+    document.getElementById('success-screen').classList.add('show');
+    window.scrollTo(0, 0);
+  } catch (err) {
+    document.getElementById('spinner').classList.remove('show');
+    showError(`Submission failed (${err.message}). Check your connection and try again.`);
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('form-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function resetForm() {
+  ['employee','vehicle-id','odometer','odometer-return','purpose','project-ref','vehicle-notes']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('oos-warning').classList.remove('show');
+  document.getElementById('miles-display').classList.remove('show');
+  document.getElementById('form-error').classList.remove('show');
+  setEntryType('checkout');
+  document.getElementById('main-form').style.display = 'block';
+  document.getElementById('success-screen').classList.remove('show');
+  const now = new Date();
+  document.getElementById('log-date').value = now.toISOString().slice(0,10);
+  document.getElementById('log-time').value =
+    String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>PNWD — Maintenance Log</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brand: #1B4F72; --accent: #2980B9; --success: #1E8449;
+      --warn: #D35400; --danger: #C0392B; --bg: #F4F6F8; --card: #FFFFFF;
+      --border: #D5D8DC; --text: #1C2833; --sub: #5D6D7E;
+      --radius: 12px; --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 40px; }
+    header { background: var(--brand); color: white; padding: 18px 20px 14px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    header .logo { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.7; }
+    header h1 { font-size: 20px; font-weight: 700; margin-top: 2px; }
+    .content { padding: 20px 16px; }
+    .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+    .section-label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--brand); margin-bottom: 14px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--sub); margin-bottom: 6px; margin-top: 16px; }
+    label:first-of-type { margin-top: 0; }
+    input[type="text"], input[type="date"], input[type="number"], select, textarea {
+      width: 100%; padding: 14px; border: 1.5px solid var(--border); border-radius: 10px;
+      font-size: 16px; color: var(--text); background: white; -webkit-appearance: none; outline: none; transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: none; min-height: 70px; }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%235D6D7E'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+    /* Next service callout */
+    .next-service-box { background: #EBF5FB; border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: 13px; color: var(--brand); line-height: 1.6; margin-top: 10px; display: none; }
+    .next-service-box.show { display: block; }
+    /* Cost row */
+    .cost-prefix { display: flex; align-items: center; border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .cost-prefix span { padding: 14px 12px; background: var(--bg); font-size: 16px; color: var(--sub); border-right: 1.5px solid var(--border); }
+    .cost-prefix input { border: none; border-radius: 0; flex: 1; }
+    /* Buttons */
+    .btn-primary { display: block; width: 100%; padding: 16px; background: var(--brand); color: white; font-size: 17px; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; text-align: center; margin-top: 20px; -webkit-tap-highlight-color: transparent; transition: background 0.2s; }
+    .btn-primary:active { background: var(--accent); }
+    /* Spinner */
+    .spinner-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; flex-direction: column; gap: 14px; color: white; }
+    .spinner-overlay.show { display: flex; }
+    .spinner { width: 44px; height: 44px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Success */
+    .success-screen { display: none; text-align: center; padding: 40px 20px; }
+    .success-screen.show { display: block; }
+    .success-icon { width: 72px; height: 72px; background: var(--success); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; margin: 0 auto 20px; animation: pop 0.4s ease; }
+    @keyframes pop { 0%{transform:scale(0)} 80%{transform:scale(1.1)} 100%{transform:scale(1)} }
+    .success-screen h2 { font-size: 24px; color: var(--success); margin-bottom: 8px; }
+    .success-screen p  { color: var(--sub); font-size: 15px; line-height: 1.5; margin-bottom: 6px; }
+    .record-id { background: var(--bg); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 15px; color: var(--brand); font-weight: 700; margin: 16px 0; letter-spacing: 1px; }
+    .next-service-result { background: #E9F7EF; border: 1.5px solid var(--success); border-radius: 10px; padding: 12px 14px; font-size: 14px; color: #1A5229; margin: 12px 0; }
+    .btn-new { display: inline-block; margin-top: 20px; padding: 14px 32px; background: var(--brand); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    /* Error */
+    .error-banner { display: none; background: #FDEDEC; border: 1.5px solid #E74C3C; border-radius: 10px; padding: 14px; margin-top: 12px; font-size: 14px; color: #922B21; }
+    .error-banner.show { display: block; }
+    .req { color: var(--warn); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Pacific Northwest Drywall</div>
+  <h1>🔧 Maintenance Log</h1>
+</header>
+
+<div class="spinner-overlay" id="spinner">
+  <div class="spinner"></div>
+  <span>Saving maintenance record…</span>
+</div>
+
+<div class="content" id="main-form">
+  <div class="card">
+    <div class="section-label">Vehicle &amp; Service Info</div>
+    <label for="vehicle-id">Vehicle <span class="req">*</span></label>
+    <select id="vehicle-id" onchange="calcNextService()">
+      <option value="">— Select Vehicle —</option>
+      <option value="PNWD-F450">PNWD-F450 · Ford F-450</option>
+      <option value="PNWD-F350">PNWD-F350 · Ford F-350</option>
+      <option value="PNWD-VAN">PNWD-VAN · Ford Transit (Van)</option>
+      <option value="PNWD-TUNDRA">PNWD-TUNDRA · Toyota Tundra</option>
+      <option value="PNWD-DUMP">PNWD-DUMP · Dump Trailer</option>
+      <option value="PNWD-OOS">PNWD-OOS · Decommissioned Trailer (Out of Service)</option>
+    </select>
+
+    <label for="service-type">Service Type <span class="req">*</span></label>
+    <select id="service-type" onchange="calcNextService()">
+      <option value="">— Select Service Type —</option>
+      <option value="oil-change"          data-miles="5000"  data-days="90">Oil Change (every 5,000 mi / 90 days)</option>
+      <option value="tire-rotation"       data-miles="7500"  data-days="180">Tire Rotation (every 7,500 mi)</option>
+      <option value="brake-inspection"    data-miles="20000" data-days="365">Brake Inspection (annual)</option>
+      <option value="brake-service"       data-miles="30000" data-days="0">Brake Service</option>
+      <option value="transmission"        data-miles="30000" data-days="0">Transmission Service</option>
+      <option value="coolant-flush"       data-miles="30000" data-days="730">Coolant Flush (every 2 yrs)</option>
+      <option value="air-filter"          data-miles="15000" data-days="365">Air Filter Replacement</option>
+      <option value="tire-replacement"    data-miles="50000" data-days="0">Tire Replacement</option>
+      <option value="battery"             data-miles="0"     data-days="1460">Battery Replacement</option>
+      <option value="registration"        data-miles="0"     data-days="365">Registration / DOT Inspection</option>
+      <option value="windshield"          data-miles="0"     data-days="0">Windshield Repair / Replace</option>
+      <option value="other"               data-miles="0"     data-days="0">Other (see notes)</option>
+    </select>
+
+    <label for="service-provider">Service Provider <span class="req">*</span></label>
+    <input type="text" id="service-provider" placeholder="e.g. Jiffy Lube, Les Schwab" autocomplete="off" />
+
+    <label for="service-date">Service Date <span class="req">*</span></label>
+    <input type="date" id="service-date" onchange="calcNextService()" />
+
+    <label for="mileage">Mileage at Service <span class="req">*</span></label>
+    <input type="number" id="mileage" placeholder="e.g. 48250" min="0" oninput="calcNextService()" />
+
+    <label>Cost</label>
+    <div class="cost-prefix">
+      <span>$</span>
+      <input type="number" id="cost" placeholder="0.00" min="0" step="0.01" style="border:none;border-radius:0;" />
+    </div>
+
+    <div class="next-service-box" id="next-service-box">
+      <strong>📅 Next Service Estimate</strong><br />
+      <span id="next-service-text">—</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">Override Next Service (optional)</div>
+    <label for="next-service-override">Next Service Date Override</label>
+    <input type="date" id="next-service-override" />
+    <label for="next-service-mileage">Next Service Mileage Override</label>
+    <input type="number" id="next-service-mileage" placeholder="e.g. 53250" min="0" />
+  </div>
+
+  <div class="card">
+    <div class="section-label">Notes</div>
+    <label for="maint-notes">Notes <span class="req">*</span></label>
+    <textarea id="maint-notes" placeholder="Describe work performed, parts replaced, or any observations about vehicle condition."></textarea>
+  </div>
+
+  <div class="error-banner" id="form-error"></div>
+  <button class="btn-primary" onclick="submitForm()">✅ Submit Maintenance Log</button>
+</div>
+
+<!-- SUCCESS -->
+<div class="success-screen" id="success-screen">
+  <div class="success-icon">✓</div>
+  <h2>Maintenance Logged</h2>
+  <p>Record saved to SharePoint.</p>
+  <div class="record-id" id="record-id-display">—</div>
+  <div class="next-service-result" id="next-service-result" style="display:none;"></div>
+  <button class="btn-new" onclick="resetForm()">+ New Record</button>
+</div>
+
+<script>
+const WEBHOOK_URL     = 'YOUR_POWER_AUTOMATE_WEBHOOK_URL_HERE';
+const SHAREPOINT_SITE = 'https://pnwd.sharepoint.com/sites/PNWD';
+
+let nextServiceDate    = null;
+let nextServiceMileage = null;
+let nextServiceDisplay = null;
+
+(function init() {
+  document.getElementById('service-date').value = new Date().toISOString().slice(0,10);
+})();
+
+function calcNextService() {
+  const serviceType = document.getElementById('service-type');
+  const dateEl      = document.getElementById('service-date');
+  const mileEl      = document.getElementById('mileage');
+  const box         = document.getElementById('next-service-box');
+  const txt         = document.getElementById('next-service-text');
+
+  nextServiceDate = nextServiceMileage = nextServiceDisplay = null;
+
+  if (!serviceType.value || !dateEl.value) { box.classList.remove('show'); return; }
+
+  const opt      = serviceType.options[serviceType.selectedIndex];
+  const intMiles = parseInt(opt.getAttribute('data-miles')) || 0;
+  const intDays  = parseInt(opt.getAttribute('data-days'))  || 0;
+  const curMile  = parseInt(mileEl.value) || 0;
+
+  const parts = [];
+
+  if (intMiles > 0 && curMile > 0) {
+    nextServiceMileage = curMile + intMiles;
+    parts.push(`${nextServiceMileage.toLocaleString()} mi`);
+  }
+  if (intDays > 0) {
+    const d = new Date(dateEl.value);
+    d.setDate(d.getDate() + intDays);
+    nextServiceDate = d.toISOString().slice(0,10);
+    parts.push(d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }));
+  }
+
+  if (parts.length) {
+    nextServiceDisplay = parts.join(' or ');
+    txt.textContent = nextServiceDisplay;
+    box.classList.add('show');
+  } else {
+    box.classList.remove('show');
+  }
+}
+
+function generateRecordID() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let rand = '';
+  for (let i = 0; i < 4; i++) rand += chars[Math.floor(Math.random() * chars.length)];
+  return 'ML-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + rand;
+}
+
+async function submitForm() {
+  document.getElementById('form-error').classList.remove('show');
+  const required = ['vehicle-id','service-type','service-provider','service-date','mileage','maint-notes'];
+  for (const id of required) {
+    if (!document.getElementById(id).value.trim()) {
+      showError('Please complete all required fields before submitting.');
+      document.getElementById(id).focus();
+      return;
+    }
+  }
+
+  const recordID  = generateRecordID();
+  const timestamp = new Date().toISOString();
+  const vehicle   = document.getElementById('vehicle-id').value;
+  const svcType   = document.getElementById('service-type').value;
+  const svcLabel  = document.getElementById('service-type').options[document.getElementById('service-type').selectedIndex].text;
+
+  // Use overrides if provided
+  const nsDateOverride  = document.getElementById('next-service-override').value;
+  const nsMileOverride  = document.getElementById('next-service-mileage').value;
+  const finalNSDate     = nsDateOverride  || nextServiceDate    || null;
+  const finalNSMileage  = nsMileOverride  ? parseInt(nsMileOverride) : nextServiceMileage || null;
+  const finalNSDisplay  = finalNSDate || (finalNSMileage ? finalNSMileage.toLocaleString() + ' mi' : 'See notes');
+
+  const payload = {
+    recordID,
+    timestamp,
+    formType:          'VehicleMaintenanceLog',
+    department:        'Operations',
+    vehicleID:         vehicle,
+    serviceType:       svcType,
+    serviceLabel:      svcLabel,
+    serviceProvider:   document.getElementById('service-provider').value,
+    serviceDate:       document.getElementById('service-date').value,
+    mileageAtService:  parseInt(document.getElementById('mileage').value) || 0,
+    cost:              parseFloat(document.getElementById('cost').value) || 0,
+    nextServiceDate:   finalNSDate,
+    nextServiceMileage: finalNSMileage,
+    nextServiceDisplay: finalNSDisplay,
+    notes:             document.getElementById('maint-notes').value,
+    submitter:         'Danny (Expediter)',
+    status:            'Submitted',
+    sharepointSite:    SHAREPOINT_SITE,
+    sharepointFolder:  'OPS-003-Vehicles/002-maintenance_log',
+    masterLog: {
+      recordID,
+      timestamp,
+      formType:   'VehicleMaintenanceLog',
+      department: 'Operations',
+      submitter:  'Danny (Expediter)',
+      project:    'Fleet',
+      summary:    `${svcLabel} — ${vehicle}`,
+      status:     'Submitted'
+    }
+  };
+
+  document.getElementById('spinner').classList.add('show');
+  try {
+    const res = await fetch(WEBHOOK_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    document.getElementById('spinner').classList.remove('show');
+    document.getElementById('record-id-display').textContent = recordID;
+    if (finalNSDisplay) {
+      const el = document.getElementById('next-service-result');
+      el.textContent = `🔔 Next service due: ${finalNSDisplay}`;
+      el.style.display = 'block';
+    }
+    document.getElementById('main-form').style.display = 'none';
+    document.getElementById('success-screen').classList.add('show');
+    window.scrollTo(0, 0);
+  } catch (err) {
+    document.getElementById('spinner').classList.remove('show');
+    showError(`Submission failed (${err.message}). Check your connection and try again.`);
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('form-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function resetForm() {
+  ['vehicle-id','service-type','service-provider','mileage','cost',
+   'next-service-override','next-service-mileage','maint-notes'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  nextServiceDate = nextServiceMileage = nextServiceDisplay = null;
+  document.getElementById('next-service-box').classList.remove('show');
+  document.getElementById('next-service-result').style.display = 'none';
+  document.getElementById('form-error').classList.remove('show');
+  document.getElementById('main-form').style.display = 'block';
+  document.getElementById('success-screen').classList.remove('show');
+  document.getElementById('service-date').value = new Date().toISOString().slice(0,10);
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>

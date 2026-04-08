@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>PNWD — Delivery Confirmation</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brand: #1B4F72; --accent: #2980B9; --success: #1E8449;
+      --warn: #D35400; --danger: #C0392B; --bg: #F4F6F8; --card: #FFFFFF;
+      --border: #D5D8DC; --text: #1C2833; --sub: #5D6D7E;
+      --radius: 12px; --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 40px; }
+    header { background: var(--brand); color: white; padding: 18px 20px 14px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    header .logo { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.7; }
+    header h1 { font-size: 20px; font-weight: 700; margin-top: 2px; }
+    .step-indicator { display: flex; gap: 6px; margin-top: 10px; }
+    .step-dot { height: 4px; flex: 1; border-radius: 2px; background: rgba(255,255,255,0.25); transition: background 0.3s; }
+    .step-dot.active { background: white; }
+    .step-dot.done { background: rgba(255,255,255,0.6); }
+    .step { display: none; padding: 20px 16px; }
+    .step.active { display: block; }
+    .section-label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--brand); margin-bottom: 12px; }
+    .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--sub); margin-bottom: 6px; margin-top: 16px; }
+    label:first-of-type { margin-top: 0; }
+    input[type="text"], input[type="date"], input[type="time"], select, textarea {
+      width: 100%; padding: 14px; border: 1.5px solid var(--border); border-radius: 10px;
+      font-size: 16px; color: var(--text); background: white; -webkit-appearance: none; outline: none; transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: none; min-height: 80px; }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%235D6D7E'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+    /* Photo areas */
+    .photo-area { border: 2px dashed var(--border); border-radius: var(--radius); padding: 24px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; }
+    .photo-area:active { border-color: var(--accent); background: #EBF5FB; }
+    .photo-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .photo-icon { font-size: 36px; margin-bottom: 8px; }
+    .photo-area p { font-size: 14px; color: var(--sub); }
+    .photo-area p strong { color: var(--accent); }
+    .photo-preview { display: none; margin-top: 12px; }
+    .photo-preview img { width: 100%; border-radius: 8px; max-height: 220px; object-fit: cover; }
+    .photo-retake { margin-top: 8px; font-size: 13px; color: var(--accent); text-decoration: underline; cursor: pointer; background: none; border: none; padding: 0; }
+    /* Selfie area — front camera */
+    .selfie-area { border: 2px dashed #9B59B6; border-radius: var(--radius); padding: 24px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; }
+    .selfie-area:active { border-color: #8E44AD; background: #F5EEF8; }
+    .selfie-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .selfie-preview { display: none; margin-top: 12px; }
+    .selfie-preview img { width: 100%; border-radius: 8px; max-height: 220px; object-fit: cover; }
+    /* Signature */
+    .sig-container { border: 2px solid var(--border); border-radius: var(--radius); background: #FAFAFA; position: relative; overflow: hidden; touch-action: none; }
+    .sig-container canvas { display: block; width: 100%; touch-action: none; cursor: crosshair; -webkit-user-select: none; user-select: none; }
+    .sig-placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 14px; color: #BDC3C7; pointer-events: none; transition: opacity 0.2s; }
+    .sig-placeholder.hidden { opacity: 0; }
+    .sig-actions { display: flex; gap: 10px; margin-top: 10px; }
+    .btn-clear { background: none; border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 18px; font-size: 14px; color: var(--sub); cursor: pointer; flex: 1; }
+    /* Review */
+    .review-table { width: 100%; border-collapse: collapse; }
+    .review-table td { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 15px; vertical-align: top; }
+    .review-table td:first-child { color: var(--sub); font-size: 13px; font-weight: 600; width: 42%; padding-right: 10px; }
+    .review-table tr:last-child td { border-bottom: none; }
+    .review-img { max-height: 90px; border-radius: 6px; border: 1px solid var(--border); padding: 4px; background: white; }
+    .review-photo { width: 100%; border-radius: 8px; max-height: 160px; object-fit: cover; margin-top: 4px; }
+    /* Buttons */
+    .btn-primary { display: block; width: 100%; padding: 16px; background: var(--brand); color: white; font-size: 17px; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; text-align: center; margin-top: 20px; -webkit-tap-highlight-color: transparent; transition: background 0.2s; }
+    .btn-primary:active { background: var(--accent); }
+    .btn-primary:disabled { background: #AEB6BF; cursor: not-allowed; }
+    .btn-back { display: block; width: 100%; padding: 14px; background: none; color: var(--sub); font-size: 15px; border: none; border-radius: 12px; cursor: pointer; text-align: center; margin-top: 10px; }
+    /* Success */
+    .success-screen { text-align: center; padding: 40px 20px; }
+    .success-icon { width: 72px; height: 72px; background: var(--success); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; margin: 0 auto 20px; animation: pop 0.4s ease; }
+    @keyframes pop { 0%{transform:scale(0)} 80%{transform:scale(1.1)} 100%{transform:scale(1)} }
+    .success-screen h2 { font-size: 24px; color: var(--success); margin-bottom: 8px; }
+    .success-screen p { color: var(--sub); font-size: 15px; line-height: 1.5; margin-bottom: 6px; }
+    .record-id { background: var(--bg); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 15px; color: var(--brand); font-weight: 700; margin: 16px 0; letter-spacing: 1px; }
+    .btn-new { display: inline-block; margin-top: 20px; padding: 14px 32px; background: var(--brand); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    /* Spinner */
+    .spinner-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; flex-direction: column; gap: 14px; color: white; }
+    .spinner-overlay.show { display: flex; }
+    .spinner { width: 44px; height: 44px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-label { font-size: 15px; font-weight: 500; opacity: 0.9; }
+    /* Errors */
+    .error-banner { display: none; background: #FDEDEC; border: 1.5px solid #E74C3C; border-radius: 10px; padding: 14px; margin-top: 12px; font-size: 14px; color: #922B21; }
+    .error-banner.show { display: block; }
+    .req { color: var(--warn); }
+    /* Info callout */
+    .info-box { background: #EBF5FB; border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: 13px; color: var(--brand); line-height: 1.5; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Pacific Northwest Drywall</div>
+  <h1>🚚 Delivery Confirmation</h1>
+  <div class="step-indicator">
+    <div class="step-dot active" id="dot-1"></div>
+    <div class="step-dot" id="dot-2"></div>
+    <div class="step-dot" id="dot-3"></div>
+    <div class="step-dot" id="dot-4"></div>
+    <div class="step-dot" id="dot-5"></div>
+  </div>
+</header>
+
+<div class="spinner-overlay" id="spinner">
+  <div class="spinner"></div>
+  <div class="spinner-label" id="spinner-label">Submitting…</div>
+</div>
+
+<!-- ══ STEP 1: Delivery Details ══ -->
+<div class="step active" id="step-1">
+  <div class="card">
+    <div class="section-label">Step 1 of 5 — Delivery Details</div>
+    <label for="project">Project Name <span class="req">*</span></label>
+    <select id="project">
+      <option value="">— Select Project —</option>
+      <option>Arhaus</option>
+      <option>Toyota</option>
+      <option>Grand Prix</option>
+      <option>CC Jail</option>
+      <option>DWR</option>
+      <option>HM</option>
+      <option>PB</option>
+      <option>Rite Aid</option>
+      <option>Eastbank Market - PDX</option>
+      <option>Washington Park - PDX</option>
+      <option>Topaz Farms - PDX</option>
+      <option>Barbur Foods - PDX</option>
+      <option>TS Redmond</option>
+    </select>
+    <label for="vendor">Vendor / Supplier <span class="req">*</span></label>
+    <input type="text" id="vendor" placeholder="e.g. Pacific Coast Supply" autocomplete="off" />
+    <label for="po-number">PO Number (if applicable)</label>
+    <input type="text" id="po-number" placeholder="e.g. PO-2026-0042" autocomplete="off" />
+    <label for="delivery-date">Delivery Date <span class="req">*</span></label>
+    <input type="date" id="delivery-date" />
+    <label for="delivery-time">Delivery Time <span class="req">*</span></label>
+    <input type="time" id="delivery-time" />
+    <label for="materials">Materials Delivered <span class="req">*</span></label>
+    <textarea id="materials" placeholder="List all materials, quantities, and condition notes."></textarea>
+    <label for="condition">Delivery Condition <span class="req">*</span></label>
+    <select id="condition">
+      <option value="">— Select —</option>
+      <option value="complete-good">Complete — Good Condition</option>
+      <option value="complete-damaged">Complete — Damaged Items Present</option>
+      <option value="partial-good">Partial Delivery — Good Condition</option>
+      <option value="partial-damaged">Partial Delivery — Damaged Items Present</option>
+      <option value="refused">Delivery Refused</option>
+    </select>
+    <label for="notes">Notes (optional)</label>
+    <textarea id="notes" placeholder="Any additional details about this delivery." style="min-height:60px;"></textarea>
+    <div class="error-banner" id="step1-error">Please complete all required fields before continuing.</div>
+    <button class="btn-primary" onclick="goStep(2)">Continue →</button>
+  </div>
+</div>
+
+<!-- ══ STEP 2: Delivery Photo (Danny takes this) ══ -->
+<div class="step" id="step-2">
+  <div class="card">
+    <div class="section-label">Step 2 of 5 — Delivery Photo</div>
+    <p style="font-size:14px;color:var(--sub);margin-bottom:16px;line-height:1.5;">Take a clear photo of the delivered materials. Include any damaged items in the frame.</p>
+    <div class="photo-area" id="delivery-photo-area">
+      <input type="file" accept="image/*" capture="environment" id="delivery-photo-input" onchange="handlePhoto(this,'delivery')" />
+      <div class="photo-icon">📷</div>
+      <p><strong>Tap to open camera</strong></p>
+      <p>Rear camera — materials photo</p>
+    </div>
+    <div class="photo-preview" id="delivery-photo-preview">
+      <img id="delivery-photo-img" src="" alt="Delivery photo" />
+      <button class="photo-retake" onclick="retakePhoto('delivery')">↩ Retake photo</button>
+    </div>
+    <div class="error-banner" id="step2-error">A delivery photo is required before continuing.</div>
+    <button class="btn-primary" id="btn-step3" disabled onclick="goStep(3)">Continue →</button>
+    <button class="btn-back" onclick="goStep(1)">← Back</button>
+  </div>
+</div>
+
+<!-- ══ STEP 3: Receiver Info + Signature ══ -->
+<div class="step" id="step-3">
+  <div class="card">
+    <div class="section-label">Step 3 of 5 — Receiver Signature</div>
+    <div class="info-box">Hand the device to the person receiving the delivery to sign below.</div>
+    <label for="receiver-name">Receiver Name <span class="req">*</span></label>
+    <input type="text" id="receiver-name" placeholder="First and last name" autocomplete="off" />
+    <label for="receiver-company">Receiver Company <span class="req">*</span></label>
+    <input type="text" id="receiver-company" placeholder="Company name" autocomplete="off" />
+    <label for="receiver-title">Title / Role (optional)</label>
+    <input type="text" id="receiver-title" placeholder="e.g. Site Foreman" autocomplete="off" />
+    <label style="margin-top:20px;">Signature <span class="req">*</span></label>
+    <div class="sig-container" id="sig-container">
+      <canvas id="sig-canvas" height="160"></canvas>
+      <div class="sig-placeholder" id="sig-placeholder">Sign here with finger</div>
+    </div>
+    <div class="sig-actions">
+      <button class="btn-clear" onclick="clearSignature()">Clear Signature</button>
+    </div>
+    <div class="error-banner" id="step3-error">Please complete all required fields and provide a signature.</div>
+    <button class="btn-primary" onclick="validateStep3()">Continue →</button>
+    <button class="btn-back" onclick="goStep(2)">← Back</button>
+  </div>
+</div>
+
+<!-- ══ STEP 4: Signer Selfie ══ -->
+<div class="step" id="step-4">
+  <div class="card">
+    <div class="section-label">Step 4 of 5 — Identity Verification</div>
+    <div class="info-box" style="border-left-color:#9B59B6;background:#F5EEF8;color:#6C3483;">The receiver must take a selfie to verify identity. Hand the device to them.</div>
+    <p style="font-size:14px;color:var(--sub);margin-bottom:16px;line-height:1.5;">The person who signed must take a selfie using the front camera.</p>
+    <div class="selfie-area" id="selfie-area">
+      <input type="file" accept="image/*" capture="user" id="selfie-input" onchange="handlePhoto(this,'selfie')" />
+      <div class="photo-icon">🤳</div>
+      <p><strong>Tap to open front camera</strong></p>
+      <p>Receiver selfie — identity verification</p>
+    </div>
+    <div class="selfie-preview" id="selfie-preview">
+      <img id="selfie-img" src="" alt="Selfie" />
+      <button class="photo-retake" onclick="retakePhoto('selfie')">↩ Retake selfie</button>
+    </div>
+    <div class="error-banner" id="step4-error">A selfie is required for identity verification.</div>
+    <button class="btn-primary" id="btn-step5" disabled onclick="goStep(5)">Continue →</button>
+    <button class="btn-back" onclick="goStep(3)">← Back</button>
+  </div>
+</div>
+
+<!-- ══ STEP 5: Review + Submit ══ -->
+<div class="step" id="step-5">
+  <div class="card">
+    <div class="section-label">Step 5 of 5 — Review &amp; Submit</div>
+    <table class="review-table">
+      <tr><td>Project</td><td id="r-project">—</td></tr>
+      <tr><td>Vendor</td><td id="r-vendor">—</td></tr>
+      <tr><td>PO #</td><td id="r-po">—</td></tr>
+      <tr><td>Date / Time</td><td id="r-datetime">—</td></tr>
+      <tr><td>Materials</td><td id="r-materials">—</td></tr>
+      <tr><td>Condition</td><td id="r-condition">—</td></tr>
+      <tr><td>Receiver</td><td id="r-receiver">—</td></tr>
+      <tr><td>Signature</td><td><img id="r-sig" class="review-img" src="" alt="signature" /></td></tr>
+      <tr><td>Selfie</td><td><img id="r-selfie" class="review-photo" src="" alt="selfie" /></td></tr>
+      <tr><td>Delivery Photo</td><td><img id="r-photo" class="review-photo" src="" alt="delivery photo" /></td></tr>
+    </table>
+    <div class="error-banner" id="submit-error"></div>
+    <button class="btn-primary" onclick="submitForm()">✅ Submit Delivery Confirmation</button>
+    <button class="btn-back" onclick="goStep(4)">← Back</button>
+  </div>
+</div>
+
+<!-- ══ SUCCESS ══ -->
+<div class="step" id="step-success">
+  <div class="success-screen">
+    <div class="success-icon">✓</div>
+    <h2>Delivery Confirmed</h2>
+    <p>Record saved to SharePoint and logged.</p>
+    <div class="record-id" id="record-id-display">—</div>
+    <p style="font-size:13px;">Brian Collins has been notified.</p>
+    <button class="btn-new" onclick="resetForm()">+ New Delivery</button>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────
+const WEBHOOK_URL       = 'YOUR_POWER_AUTOMATE_WEBHOOK_URL_HERE';
+const SHAREPOINT_SITE   = 'https://pnwd.sharepoint.com/sites/PNWD';
+const SHAREPOINT_FOLDER = 'OPS-001-Deliveries/001-delivery-confirmation';
+
+const conditionMap = {
+  'complete-good':     'Complete — Good Condition',
+  'complete-damaged':  'Complete — Damaged Items Present',
+  'partial-good':      'Partial Delivery — Good Condition',
+  'partial-damaged':   'Partial Delivery — Damaged Items Present',
+  'refused':           'Delivery Refused'
+};
+
+// ─── STATE ────────────────────────────────────────────────
+let currentStep       = 1;
+let deliveryPhotoB64  = null;
+let selfiePhotoB64    = null;
+let signatureB64      = null;
+let sigHasContent     = false;
+
+// ─── INIT ─────────────────────────────────────────────────
+(function init() {
+  const now = new Date();
+  document.getElementById('delivery-date').value = now.toISOString().slice(0,10);
+  document.getElementById('delivery-time').value =
+    String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  initSignature();
+})();
+
+// ─── STEP NAVIGATION ──────────────────────────────────────
+function goStep(n) {
+  if (n === 2 && !validateStep1()) return;
+
+  document.getElementById('step-' + currentStep).classList.remove('active');
+  if (currentStep === 'success') document.getElementById('step-success').classList.remove('active');
+
+  const prevStep = currentStep;
+  currentStep = n;
+
+  const el = document.getElementById('step-' + n);
+  if (el) el.classList.add('active');
+
+  if (n === 5) populateReview();
+  updateDots();
+  window.scrollTo(0, 0);
+}
+
+function updateDots() {
+  for (let i = 1; i <= 5; i++) {
+    const dot = document.getElementById('dot-' + i);
+    if (!dot) continue;
+    dot.className = 'step-dot';
+    if (i < currentStep) dot.classList.add('done');
+    else if (i === currentStep) dot.classList.add('active');
+  }
+}
+
+// ─── STEP 1 VALIDATION ────────────────────────────────────
+function validateStep1() {
+  const required = ['project','vendor','delivery-date','delivery-time','materials','condition'];
+  for (const id of required) {
+    const el = document.getElementById(id);
+    if (!el.value.trim()) {
+      document.getElementById('step1-error').classList.add('show');
+      el.focus();
+      el.style.borderColor = 'var(--warn)';
+      setTimeout(() => el.style.borderColor = '', 2000);
+      return false;
+    }
+  }
+  document.getElementById('step1-error').classList.remove('show');
+  return true;
+}
+
+// ─── STEP 3 VALIDATION ────────────────────────────────────
+function validateStep3() {
+  const rName = document.getElementById('receiver-name').value.trim();
+  const rComp = document.getElementById('receiver-company').value.trim();
+  if (!rName || !rComp || !sigHasContent) {
+    document.getElementById('step3-error').classList.add('show');
+    return;
+  }
+  document.getElementById('step3-error').classList.remove('show');
+  signatureB64 = document.getElementById('sig-canvas').toDataURL('image/png');
+  goStep(4);
+}
+
+// ─── PHOTO HANDLING ───────────────────────────────────────
+function handlePhoto(input, type) {
+  if (!input.files || !input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    if (type === 'delivery') {
+      deliveryPhotoB64 = e.target.result;
+      document.getElementById('delivery-photo-img').src = deliveryPhotoB64;
+      document.getElementById('delivery-photo-preview').style.display = 'block';
+      document.getElementById('delivery-photo-area').style.display = 'none';
+      document.getElementById('btn-step3').disabled = false;
+    } else {
+      selfiePhotoB64 = e.target.result;
+      document.getElementById('selfie-img').src = selfiePhotoB64;
+      document.getElementById('selfie-preview').style.display = 'block';
+      document.getElementById('selfie-area').style.display = 'none';
+      document.getElementById('btn-step5').disabled = false;
+    }
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function retakePhoto(type) {
+  if (type === 'delivery') {
+    deliveryPhotoB64 = null;
+    document.getElementById('delivery-photo-preview').style.display = 'none';
+    document.getElementById('delivery-photo-area').style.display = 'block';
+    document.getElementById('delivery-photo-input').value = '';
+    document.getElementById('btn-step3').disabled = true;
+  } else {
+    selfiePhotoB64 = null;
+    document.getElementById('selfie-preview').style.display = 'none';
+    document.getElementById('selfie-area').style.display = 'block';
+    document.getElementById('selfie-input').value = '';
+    document.getElementById('btn-step5').disabled = true;
+  }
+}
+
+// ─── SIGNATURE PAD ────────────────────────────────────────
+function initSignature() {
+  const canvas    = document.getElementById('sig-canvas');
+  const container = document.getElementById('sig-container');
+  const ctx       = canvas.getContext('2d');
+  let drawing     = false;
+  let lastX = 0, lastY = 0;
+
+  function resize() {
+    const rect = container.getBoundingClientRect();
+    const dpr  = window.devicePixelRatio || 1;
+    canvas.width  = rect.width  * dpr;
+    canvas.height = 160         * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.strokeStyle = '#1C2833';
+    ctx.lineWidth   = 2.5;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+  }
+  resize();
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const src  = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+  }
+
+  function onStart(e) {
+    e.preventDefault();
+    drawing = true;
+    const pos = getPos(e);
+    lastX = pos.x; lastY = pos.y;
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+  }
+  function onMove(e) {
+    e.preventDefault();
+    if (!drawing) return;
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    lastX = pos.x; lastY = pos.y;
+    if (!sigHasContent) {
+      sigHasContent = true;
+      document.getElementById('sig-placeholder').classList.add('hidden');
+    }
+  }
+  function onEnd(e) { e.preventDefault(); drawing = false; }
+
+  canvas.addEventListener('touchstart', onStart, { passive: false });
+  canvas.addEventListener('touchmove',  onMove,  { passive: false });
+  canvas.addEventListener('touchend',   onEnd,   { passive: false });
+  canvas.addEventListener('mousedown',  onStart);
+  canvas.addEventListener('mousemove',  onMove);
+  canvas.addEventListener('mouseup',    onEnd);
+}
+
+function clearSignature() {
+  const canvas = document.getElementById('sig-canvas');
+  const ctx    = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  sigHasContent = false;
+  signatureB64  = null;
+  document.getElementById('sig-placeholder').classList.remove('hidden');
+}
+
+// ─── REVIEW ───────────────────────────────────────────────
+function populateReview() {
+  const cond = document.getElementById('condition').value;
+  const dt   = document.getElementById('delivery-date').value + ' at ' + document.getElementById('delivery-time').value;
+  const recv = document.getElementById('receiver-name').value + ' — ' + document.getElementById('receiver-company').value;
+  const title = document.getElementById('receiver-title').value;
+
+  document.getElementById('r-project').textContent   = document.getElementById('project').value;
+  document.getElementById('r-vendor').textContent    = document.getElementById('vendor').value;
+  document.getElementById('r-po').textContent        = document.getElementById('po-number').value || 'N/A';
+  document.getElementById('r-datetime').textContent  = dt;
+  document.getElementById('r-materials').textContent = document.getElementById('materials').value;
+  document.getElementById('r-condition').textContent = conditionMap[cond] || cond;
+  document.getElementById('r-receiver').textContent  = recv + (title ? ` (${title})` : '');
+  document.getElementById('r-sig').src               = signatureB64 || '';
+  document.getElementById('r-selfie').src            = selfiePhotoB64 || '';
+  document.getElementById('r-photo').src             = deliveryPhotoB64 || '';
+}
+
+// ─── RECORD ID ────────────────────────────────────────────
+function generateRecordID() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let rand = '';
+  for (let i = 0; i < 4; i++) rand += chars[Math.floor(Math.random() * chars.length)];
+  return 'DC-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + rand;
+}
+
+// ─── SUBMIT ───────────────────────────────────────────────
+async function submitForm() {
+  document.getElementById('submit-error').classList.remove('show');
+  const spinner = document.getElementById('spinner');
+  const label   = document.getElementById('spinner-label');
+  spinner.classList.add('show');
+  label.textContent = 'Saving to SharePoint…';
+
+  const recordID  = generateRecordID();
+  const timestamp = new Date().toISOString();
+
+  const payload = {
+    // — Core fields —
+    recordID,
+    timestamp,
+    formType:        'DeliveryConfirmation',
+    department:      'Operations',
+    project:         document.getElementById('project').value,
+    vendor:          document.getElementById('vendor').value,
+    poNumber:        document.getElementById('po-number').value,
+    deliveryDate:    document.getElementById('delivery-date').value,
+    deliveryTime:    document.getElementById('delivery-time').value,
+    materials:       document.getElementById('materials').value,
+    condition:       document.getElementById('condition').value,
+    conditionLabel:  conditionMap[document.getElementById('condition').value] || '',
+    notes:           document.getElementById('notes').value,
+    receiverName:    document.getElementById('receiver-name').value,
+    receiverCompany: document.getElementById('receiver-company').value,
+    receiverTitle:   document.getElementById('receiver-title').value,
+    signatureImage:  signatureB64,
+    selfieImage:     selfiePhotoB64,
+    deliveryPhoto:   deliveryPhotoB64,
+    submitter:       'Danny (Expediter)',
+    status:          'Submitted',
+    sharepointSite:  SHAREPOINT_SITE,
+    sharepointFolder: SHAREPOINT_FOLDER,
+    // — Master Form Log sub-object —
+    masterLog: {
+      recordID,
+      timestamp,
+      formType:    'DeliveryConfirmation',
+      department:  'Operations',
+      submitter:   'Danny (Expediter)',
+      project:     document.getElementById('project').value,
+      summary:     `Delivery from ${document.getElementById('vendor').value} — ${conditionMap[document.getElementById('condition').value] || ''}`,
+      status:      'Submitted'
+    }
+  };
+
+  try {
+    const res = await fetch(WEBHOOK_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    spinner.classList.remove('show');
+    document.getElementById('record-id-display').textContent = recordID;
+    document.getElementById('step-5').classList.remove('active');
+    document.getElementById('step-success').classList.add('active');
+    window.scrollTo(0, 0);
+  } catch (err) {
+    spinner.classList.remove('show');
+    const errEl = document.getElementById('submit-error');
+    errEl.textContent = `Submission failed (${err.message}). Check your connection and try again. Your data is not lost — tap Submit again.`;
+    errEl.classList.add('show');
+  }
+}
+
+// ─── RESET ────────────────────────────────────────────────
+function resetForm() {
+  ['project','vendor','po-number','materials','condition','notes',
+   'receiver-name','receiver-company','receiver-title'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  deliveryPhotoB64 = selfiePhotoB64 = signatureB64 = null;
+  sigHasContent = false;
+
+  ['delivery-photo-preview','selfie-preview'].forEach(id => document.getElementById(id).style.display = 'none');
+  ['delivery-photo-area','selfie-area'].forEach(id => document.getElementById(id).style.display = 'block');
+  document.getElementById('delivery-photo-input').value = '';
+  document.getElementById('selfie-input').value         = '';
+  document.getElementById('btn-step3').disabled = true;
+  document.getElementById('btn-step5').disabled = true;
+  clearSignature();
+
+  document.getElementById('step-success').classList.remove('active');
+  currentStep = 1;
+  document.getElementById('step-1').classList.add('active');
+  updateDots();
+  window.scrollTo(0, 0);
+
+  const now = new Date();
+  document.getElementById('delivery-date').value = now.toISOString().slice(0,10);
+  document.getElementById('delivery-time').value =
+    String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+}
+</script>
+</body>
+</html>
