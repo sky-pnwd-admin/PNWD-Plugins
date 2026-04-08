@@ -1,0 +1,684 @@
+create_file({
+  path: "/home/claude/delivery_confirmation_graph.html",
+  description: "Delivery confirmation plugin with Graph API authentication, photo capture, and direct SharePoint Excel writes",
+  file_text: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Confirmation</title>
+    <script src="https://alcdn.msauth.net/browser/2.38.1/js/msal-browser.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+        
+        h1 {
+            color: #2d3748;
+            font-size: 28px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="date"],
+        input[type="time"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .photo-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+        
+        .photo-section h3 {
+            color: #2d3748;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        
+        .photo-btn {
+            width: 100%;
+            padding: 12px;
+            background: #4299e1;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        
+        .photo-preview {
+            width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            border-radius: 8px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .photo-preview.active {
+            display: block;
+        }
+        
+        .signature-pad {
+            width: 100%;
+            height: 200px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: crosshair;
+            background: white;
+            touch-action: none;
+        }
+        
+        .signature-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .btn-clear {
+            flex: 1;
+            padding: 8px;
+            background: #fc8181;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-weight: 600;
+            text-align: center;
+            display: none;
+        }
+        
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+            display: block;
+        }
+        
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+            display: block;
+        }
+        
+        .status.loading {
+            background: #bee3f8;
+            color: #2c5282;
+            display: block;
+        }
+        
+        .auth-status {
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .auth-status.authenticated {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .auth-status.unauthenticated {
+            background: #feebc8;
+            color: #7c2d12;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Delivery Confirmation</h1>
+        
+        <div id="authStatus" class="auth-status unauthenticated">
+            Authenticating...
+        </div>
+        
+        <form id="deliveryForm">
+            <div class="form-group">
+                <label for="project">Project *</label>
+                <input type="text" id="project" required placeholder="e.g., Arhaus">
+            </div>
+            
+            <div class="form-group">
+                <label for="vendor">Vendor *</label>
+                <input type="text" id="vendor" required placeholder="e.g., Pacific Coast Supply">
+            </div>
+            
+            <div class="form-group">
+                <label for="poNumber">PO Number *</label>
+                <input type="text" id="poNumber" required placeholder="e.g., PO-2026-0042">
+            </div>
+            
+            <div class="form-group">
+                <label for="deliveryDate">Delivery Date *</label>
+                <input type="date" id="deliveryDate" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="deliveryTime">Delivery Time *</label>
+                <input type="time" id="deliveryTime" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="materials">Materials Delivered *</label>
+                <textarea id="materials" required placeholder="e.g., 5/8 Type X Drywall x 200 sheets"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="condition">Condition *</label>
+                <select id="condition" required>
+                    <option value="">Select condition...</option>
+                    <option value="complete-good">Complete — Good Condition</option>
+                    <option value="complete-damaged">Complete — Some Damage</option>
+                    <option value="incomplete-good">Incomplete — Good Condition</option>
+                    <option value="incomplete-damaged">Incomplete — Some Damage</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes" placeholder="Additional details..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="receiverName">Receiver Name *</label>
+                <input type="text" id="receiverName" required placeholder="e.g., John Smith">
+            </div>
+            
+            <div class="form-group">
+                <label for="receiverCompany">Receiver Company *</label>
+                <input type="text" id="receiverCompany" required placeholder="e.g., Arhaus Construction">
+            </div>
+            
+            <div class="form-group">
+                <label for="receiverTitle">Receiver Title *</label>
+                <input type="text" id="receiverTitle" required placeholder="e.g., Site Foreman">
+            </div>
+            
+            <div class="photo-section">
+                <h3>📷 Delivery Photo</h3>
+                <input type="file" id="deliveryPhotoInput" accept="image/*" capture="environment">
+                <button type="button" class="photo-btn" onclick="document.getElementById('deliveryPhotoInput').click()">
+                    Take Delivery Photo
+                </button>
+                <img id="deliveryPhotoPreview" class="photo-preview" alt="Delivery photo preview">
+            </div>
+            
+            <div class="photo-section">
+                <h3>🤳 Selfie with Receiver</h3>
+                <input type="file" id="selfieInput" accept="image/*" capture="user">
+                <button type="button" class="photo-btn" onclick="document.getElementById('selfieInput').click()">
+                    Take Selfie
+                </button>
+                <img id="selfiePreview" class="photo-preview" alt="Selfie preview">
+            </div>
+            
+            <div class="photo-section">
+                <h3>✍️ Receiver Signature *</h3>
+                <canvas id="signaturePad" class="signature-pad"></canvas>
+                <div class="signature-controls">
+                    <button type="button" class="btn-clear" id="clearSignature">Clear Signature</button>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn" id="submitBtn">Submit Delivery Confirmation</button>
+        </form>
+        
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        // Configuration
+        const msalConfig = {
+            auth: {
+                clientId: '7c3f7932-0ace-4b08-a3da-509d90be939f',
+                authority: 'https://login.microsoftonline.com/ea96ba97-cbce-4c72-b769-94e03159166a',
+                redirectUri: window.location.origin
+            },
+            cache: {
+                cacheLocation: 'localStorage',
+                storeAuthStateInCookie: false
+            }
+        };
+
+        const loginRequest = {
+            scopes: ['Files.ReadWrite.All', 'Sites.ReadWrite.All']
+        };
+
+        const siteId = 'pnwd.sharepoint.com,0c76eba1-3ee1-4b8b-bf31-672a6c59ba3f,e816da5b-53f0-44e4-9d60-98d0e513bf22';
+        const operationsDriveId = 'b!oet2DOE-i0u_MWcqbFm6P1vaFujwU-REnWCY0OUTvyKnyCrpOAv9Toj_JjY7TCMy';
+        const reportsDriveId = 'b!oet2DOE-i0u_MWcqbFm6P1vaFujwU-REnWCY0OUTvyLbOJ1KSkAYT7SN5A8cx6l4';
+
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+        let accessToken = null;
+
+        // Signature pad setup
+        const canvas = document.getElementById('signaturePad');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let hasSignature = false;
+
+        canvas.width = canvas.offsetWidth;
+        canvas.height = 200;
+
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+            const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            hasSignature = true;
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+            const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', stopDrawing);
+
+        document.getElementById('clearSignature').addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            hasSignature = false;
+        });
+
+        // Photo preview handlers
+        document.getElementById('deliveryPhotoInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('deliveryPhotoPreview');
+                    preview.src = e.target.result;
+                    preview.classList.add('active');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('selfieInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('selfiePreview');
+                    preview.src = e.target.result;
+                    preview.classList.add('active');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Condition labels
+        const conditionLabels = {
+            'complete-good': 'Complete — Good Condition',
+            'complete-damaged': 'Complete — Some Damage',
+            'incomplete-good': 'Incomplete — Good Condition',
+            'incomplete-damaged': 'Incomplete — Some Damage',
+            'rejected': 'Rejected'
+        };
+
+        // Initialize authentication
+        async function initialize() {
+            try {
+                await msalInstance.initialize();
+                const accounts = msalInstance.getAllAccounts();
+                
+                if (accounts.length > 0) {
+                    msalInstance.setActiveAccount(accounts[0]);
+                    await getToken();
+                } else {
+                    await login();
+                }
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showStatus('Authentication failed. Please refresh the page.', 'error');
+            }
+        }
+
+        async function login() {
+            try {
+                const response = await msalInstance.loginPopup(loginRequest);
+                msalInstance.setActiveAccount(response.account);
+                await getToken();
+            } catch (error) {
+                console.error('Login error:', error);
+                showStatus('Login failed. Please try again.', 'error');
+            }
+        }
+
+        async function getToken() {
+            try {
+                const account = msalInstance.getActiveAccount();
+                if (!account) {
+                    await login();
+                    return;
+                }
+
+                const response = await msalInstance.acquireTokenSilent({
+                    ...loginRequest,
+                    account: account
+                });
+                
+                accessToken = response.accessToken;
+                updateAuthStatus(account.username);
+            } catch (error) {
+                if (error instanceof msal.InteractionRequiredAuthError) {
+                    await msalInstance.acquireTokenPopup(loginRequest);
+                } else {
+                    console.error('Token acquisition error:', error);
+                }
+            }
+        }
+
+        function updateAuthStatus(username) {
+            const authStatus = document.getElementById('authStatus');
+            authStatus.className = 'auth-status authenticated';
+            authStatus.textContent = \`✓ Authenticated as \${username}\`;
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = \`status \${type}\`;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function generateRecordID() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let result = 'DC-';
+            result += new Date().toISOString().slice(0,10).replace(/-/g, '');
+            result += '-';
+            for (let i = 0; i < 4; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        async function writeToExcel(driveId, fileName, tableName, rowData) {
+            const url = \`https://graph.microsoft.com/v1.0/drives/\${driveId}/root:/\${fileName}:/workbook/tables/\${tableName}/rows\`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': \`Bearer \${accessToken}\`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    values: [rowData]
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(\`Excel write failed: \${error}\`);
+            }
+
+            return await response.json();
+        }
+
+        function getFileAsBase64(inputId) {
+            return new Promise((resolve) => {
+                const input = document.getElementById(inputId);
+                if (input.files && input.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(input.files[0]);
+                } else {
+                    resolve('');
+                }
+            });
+        }
+
+        document.getElementById('deliveryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!hasSignature) {
+                showStatus('Please provide a signature before submitting.', 'error');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            showStatus('Submitting delivery confirmation...', 'loading');
+
+            try {
+                if (!accessToken) {
+                    await getToken();
+                }
+
+                const recordID = generateRecordID();
+                const timestamp = new Date().toISOString();
+                const project = document.getElementById('project').value;
+                const vendor = document.getElementById('vendor').value;
+                const poNumber = document.getElementById('poNumber').value;
+                const deliveryDate = document.getElementById('deliveryDate').value;
+                const deliveryTime = document.getElementById('deliveryTime').value;
+                const materials = document.getElementById('materials').value;
+                const condition = document.getElementById('condition').value;
+                const conditionLabel = conditionLabels[condition];
+                const notes = document.getElementById('notes').value;
+                const receiverName = document.getElementById('receiverName').value;
+                const receiverCompany = document.getElementById('receiverCompany').value;
+                const receiverTitle = document.getElementById('receiverTitle').value;
+                const submitter = msalInstance.getActiveAccount().username;
+
+                // Get signature
+                const signatureImage = canvas.toDataURL('image/png');
+                const signatureStatus = hasSignature ? 'Captured' : 'Not Captured';
+
+                // Get photos
+                const deliveryPhoto = await getFileAsBase64('deliveryPhotoInput');
+                const selfieImage = await getFileAsBase64('selfieInput');
+                const photoStatus = deliveryPhoto ? 'Captured' : 'Not Captured';
+                const selfieStatus = selfieImage ? 'Captured' : 'Not Captured';
+
+                // Delivery Log row (21 columns) - Note: No SharePoint_Site/Folder in this table
+                const deliveryRow = [
+                    recordID,                                    // Record_ID
+                    timestamp,                                   // Timestamp
+                    'DeliveryConfirmation',                     // Form_Type
+                    'Operations',                                // Department
+                    project,                                     // Project
+                    vendor,                                      // Vendor
+                    poNumber,                                    // PO_Number
+                    deliveryDate,                                // Delivery_Date
+                    deliveryTime,                                // Delivery_Time
+                    materials,                                   // Materials
+                    condition,                                   // Condition
+                    conditionLabel,                              // Condition_Label
+                    notes,                                       // Notes
+                    receiverName,                                // Receiver_Name
+                    receiverCompany,                             // Receiver_Company
+                    receiverTitle,                               // Receiver_Title
+                    signatureStatus,                             // Signature_Status
+                    photoStatus,                                 // Photo_Status
+                    submitter,                                   // Submitter
+                    selfieStatus,                                // Selfie_Status
+                    'Submitted'                                  // Status
+                ];
+
+                // Master Log row (18 columns)
+                const masterLogRow = [
+                    \`FORM-\${Date.now()}\`,                      // FormID
+                    'DeliveryConfirmation',                     // FormType
+                    timestamp,                                   // SubmissionDateTime
+                    'Operations',                                // Department
+                    submitter,                                   // SubmittedBy
+                    submitter,                                   // SubmitterEmail
+                    'Submitted',                                 // Status
+                    project,                                     // RelatedProject
+                    '',                                          // OutputFileURL
+                    '',                                          // OutputFileName
+                    'Operations',                                // SharePointLibrary
+                    'No',                                        // ApprovalRequired
+                    '',                                          // ApprovedBy
+                    '',                                          // ApprovalDateTime
+                    '',                                          // Notes
+                    timestamp,                                   // LastModified
+                    recordID,                                    // PluginRecordID
+                    \`Delivery from \${vendor} — \${conditionLabel}\` // Summary
+                ];
+
+                // Write to Delivery Log
+                await writeToExcel(
+                    operationsDriveId,
+                    'PNWD_Delivery_Confirmation_Log.xlsx',
+                    'DeliveryLog',
+                    deliveryRow
+                );
+
+                // Write to Master Log
+                await writeToExcel(
+                    reportsDriveId,
+                    'PNWD_Master_Form_Log.xlsx',
+                    'Form_Submissions_Log',
+                    masterLogRow
+                );
+
+                showStatus('✓ Delivery confirmation submitted successfully!', 'success');
+                document.getElementById('deliveryForm').reset();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                hasSignature = false;
+                document.getElementById('deliveryPhotoPreview').classList.remove('active');
+                document.getElementById('selfiePreview').classList.remove('active');
+
+            } catch (error) {
+                console.error('Submission error:', error);
+                showStatus(\`Error: \${error.message}\`, 'error');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Set today's date and current time as defaults
+        const now = new Date();
+        document.getElementById('deliveryDate').valueAsDate = now;
+        document.getElementById('deliveryTime').value = now.toTimeString().slice(0,5);
+
+        // Initialize on load
+        initialize();
+    </script>
+</body>
+</html>`
+})
